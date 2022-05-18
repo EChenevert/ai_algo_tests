@@ -13,10 +13,10 @@ df = pd.read_csv(r"D:\Etienne\crmsDATATables\Small_bysite_byyear_season_noZeroes
 # Will use the verified pin hieght for this exploratory analysis
 
 df = df.dropna()
-
+df = df.drop(1, axis=0)
 # Train model
-dftrain = df.iloc[:2815, :]
-dftest = df.iloc[2815:, :]
+dftrain = df.iloc[:1759, :]
+dftest = df.iloc[1759:, :]
 
 timetrain = np.asarray(dftrain.index)
 timetest = np.asarray(dftest.index)
@@ -44,7 +44,7 @@ model.fit(dftrain, t=timetrain)
 model.print()
 
 # Testing
-x_model = model.simulate(dftest[:, 0], timetest)
+x_model = model.simulate(dftest[:, 0], timetrain)
 plt.scatter(*zip(*x_model))
 plt.grid(color='k', linestyle=':', linewidth=1)
 plt.show()
