@@ -5,6 +5,8 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 
+
+
 # Wrappers and functions
 # utility to convert GSLIB Geo-EAS files to a pandas DataFrame for use with Python methods
 def GSLIB2Dataframe(data_file):
@@ -309,7 +311,7 @@ mean = 10.0; stdev = 2.0                                       # Porosity mean a
 vmin = 4; vmax = 16; cmap = plt.cm.plasma                      # color min and max and using the plasma color map
 
 # calculate a stochastic realization with standard normal distribution
-sim,value = GSLIB_sgsim_2d_uncond(1,nx,ny,cell_size,seed,range_max,range_min,azimuth,"simulation")
+sim,value = GSLIB_sgsim_2d_uncond(1,nx,ny,cell_size,seed,range_max,range_min,azimuth,"declusTest.csv")
 sim = affine(sim,mean,stdev)                                     # correct the distribution to a target mean and standard deviation.
 
 

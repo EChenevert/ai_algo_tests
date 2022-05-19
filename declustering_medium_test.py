@@ -18,5 +18,14 @@ plt.show()
 #                                  'Longitude', 'Latitude', 'Average Accretion (mm)', iminmax=1, noff=25, ncell=200,
 #                                  cmin=1, cmax=15)
 
-W, Csize, Dmean = geostat.declus(df,'Longitude', 'Latitude', 'Average Accretion (mm)',
-                                 cmin=4, cmax=70, iminmax=1, noff=25, ncell=200)
+W, Csize, Dmean = geostat.declus(df, 'Longitude', 'Latitude', 'Average Accretion (mm)',
+                                 cmin=1, cmax=20, iminmax=0, noff=5, ncell=100)
+
+# W: is the output weights. Weights for each point to reduce the bias
+# Csize is the output cell sizes. grid
+# Dmean is the declustered means for each cell size
+
+sns.lineplot(x=Csize, y=Dmean)
+plt.ylabel("Declustered mean Average Accretion (mm)")
+plt.xlabel("Cell Size (lat long units..?)")
+plt.show()
