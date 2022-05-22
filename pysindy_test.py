@@ -9,21 +9,29 @@ import numpy as np
 #                                                     'Surface Elevation Change Rate']]
 
 
-# df = pd.read_csv(r"D:\Etienne\crmsDATATables\Small_bysite_byyear_season_noZeroesAccSurf.csv",
-#                         encoding='unicode escape')[['Verified Pin Height (mm)',
-#                                                     'Average Accretion (mm)']]
-# # Will use the verified pin hieght for this exploratory analysis
-#
-# df = df.dropna()
-# df = df.drop(1, axis=0)
-# time = np.asarray(df.index)
+df = pd.read_csv(r"D:\Etienne\crmsDATATables\site_specific_datasets\CRMS0002.csv",
+                        encoding='unicode escape')[['Verified Pin Height (mm)',
+                                                    'Average Accretion (mm)',
+                                                    'Surface Elevation Change Rate Shortterm']]
+# Will use the verified pin hieght for this exploratory analysis
+df['Subsidence Rate'] = df['Average Accretion (mm)'] - df['Surface Elevation Change Rate Shortterm']  # Method from Nienhuis and Jankowski subsidence map
+df['Subsidence Rate'] = [0 if i < 0 else i for i in df['Subsidence Rate']]
+df['Growing Normalized'] = df['Average Accretion (mm)']/(df['Average Accretion (mm)'] + df['Subsidence Rate'])
+df['Sinking Normalized'] = df['Subsidence Rate']/(df['Average Accretion (mm)'] + df['Subsidence Rate'])
+df = df.dropna()
+df = df.drop(0, axis=0)
+df_sind = df.drop(['Verified Pin Height (mm)',
+                    'Average Accretion (mm)',
+                    'Surface Elevation Change Rate Shortterm',
+                    'Subsidence Rate'], axis=1)
+time = np.asarray(df.index)
 
 # Jacks Qriv and Qwave data ===============================================================
 
-df_div = pd.read_excel(r"D:\Etienne\qs\ForEti.xlsx", sheet_name="Flux Divided By Channel")
-df_raw = pd.read_excel(r"D:\Etienne\qs\ForEti.xlsx", sheet_name="Measured at Mouth")
-
-timeQs = np.arange(len(df_div))
+# df_div = pd.read_excel(r"D:\Etienne\qs\ForEti.xlsx", sheet_name="Flux Divided By Channel")
+# df_raw = pd.read_excel(r"D:\Etienne\qs\ForEti.xlsx", sheet_name="Measured at Mouth")
+#
+# timeQs = np.arange(len(df_div))
 
 # # Base model library implementation ===================================================
 # import pysindy as ps
@@ -50,11 +58,11 @@ optimizer = STLSQ(threshold=0.002, alpha=0.5, normalize=True)
 estimator = SINDy(
     library=library,
     optimizer=optimizer,
-    input_features=["Qw", "Qr"]  # The feature names are just for printing
+    input_features=["Growing Ratio", "Sinking Ratio"]  # The feature names are just for printing
 )
 
 # Fit the estimator to data
-estimator.fit(np.asarray(df_div), t=timeQs)
+estimator.fit(np.asarray(df_sind), t=time)
 modelDPoly = estimator.fetch_model()
 modelDPoly.print()
 
@@ -84,24 +92,43 @@ modelDPoly.print()
 # modelGen.print()
 #
 
-# ============ Simulate from inital conditions ================================
-
-x0 = 0.5 # df_div["Qw"][0]  # elevation
-y0 = 0.5 # df_div["Qr - Flux divided by channel method"][0]  # Accretion
-
-sim = modelDPoly.simulate([x0, y0], t=timeQs)
-
-# plot
+# # ============ Simulate from inital conditions ================================
+#
+# x0 = 0.5  # df_div["Qw"][0]  # elevation
+# y0 = 0.5  # df_div["Qr - Flux divided by channel method"][0]  # Accretion
+#
+# sim = modelDPoly.simulate([x0, y0], t=time)
+#
+# # plot
 import matplotlib.pyplot as plt
+#
+# fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+# ax.plot(x0, y0, "ro", label="Initial condition", alpha=0.6, markersize=8)
+# ax.plot(np.asarray(df_sind["Growing Normalized"]), np.asarray(df_sind["Sinking Normalized"]),
+#         "b", label="Exact solution", alpha=0.4, linewidth=4)
+# ax.plot(sim[:, 0], sim[:, 1], "k--", label="SINDy model", linewidth=3)
+# ax.set(xlabel="Growing", ylabel="Sinking")
+# ax.legend()
+# plt.show()
 
-fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-ax.plot(x0, y0, "ro", label="Initial condition", alpha=0.6, markersize=8)
-ax.plot(np.asarray(df_div["Qw"]), np.asarray(df_div["Qr - Flux divided by channel method"]),
-        "b", label="Exact solution", alpha=0.4, linewidth=4)
-ax.plot(sim[:, 0], sim[:, 1], "k--", label="SINDy model", linewidth=3)
-ax.set(xlabel="Qw", ylabel="Qr_divided")
-ax.legend()
-plt.show()
+
+x_sim = modelDPoly.simulate([0.3, 0.7], time)
+plot_kws = dict(linewidth=2.5)
+
+fig, axs = plt.subplots(1, 2, figsize=(10, 4))
+axs[0].plot(time, np.asarray(df_sind)[:, 0], "r", label="$Growing$", **plot_kws)
+axs[0].plot(time, np.asarray(df_sind)[:, 1], "b", label="$Sinking$", alpha=0.4, **plot_kws)
+axs[0].plot(time, x_sim[:, 0], "k--", label="model", **plot_kws)
+axs[0].plot(time, x_sim[:, 1], "k--")
+axs[0].legend()
+axs[0].set(xlabel="t", ylabel="$x_k$")
+
+axs[1].plot(np.asarray(df_sind)[:, 0], np.asarray(df_sind)[:, 1], "r", label="$x_k$", **plot_kws)
+axs[1].plot(x_sim[:, 0], x_sim[:, 1], "k--", label="model", **plot_kws)
+axs[1].legend()
+axs[1].set(xlabel="$x_1$", ylabel="$x_2$")
+fig.show()
+
 
 # ============= PDE implementation of PySINDy ===============================
 
