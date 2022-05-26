@@ -261,3 +261,13 @@ print(eq)
 
 # Re think whcih vars to separate mineral from organic dominance, Should it just be a 2D plane?
 # Or maybe I can get a volume from the densities???? I think that would be better, then use the ratio of teh whole (should sum to one)
+
+Xdf2 = pd.DataFrame(np.column_stack((Xdf.to_numpy(), dmdf2[['Longitude', 'Latitude']].to_numpy())),
+                    columns=['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)',
+                                     'Fluvial_Dominance', 'K_mean_label', 'Longitude', 'Latitude']
+                    )
+
+# Plot k-means groups spatially lat, long
+plt.figure()
+plt.scatter(x=Xdf2['Longitude'], y=Xdf2['Latitude'], c=Xdf['K_mean_label'])
+plt.show()
