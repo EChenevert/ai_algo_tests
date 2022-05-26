@@ -10,6 +10,9 @@ d = pd.read_csv(r"D:\Etienne\crmsDATATables\CRMS_Sites\try3_distances.csv",
      "Distance_to_Water__m_", "Distance_to_Fluvial_m", "Average_Ac"]
 ]
 
+# Make mineral Density var from organic density
+d['Mineral_De'] = d['Bulk_Densi'] - d['Organic_De']
+
 sns.pairplot(d.drop(["Latitude", "Longitude", "Distance_to_Water__m_"], axis=1))
 plt.show()
 
@@ -18,13 +21,13 @@ plt.show()
 # less variables is better for the genetic algo
 
 # sr_df = d.drop(["Latitude", "Longitude", "Distance_to_Water__m_", "Organic_De"], axis=1)
-sns.pairplot(d.drop(["Latitude", "Longitude", "Distance_to_Water__m_", "Organic_De"], axis=1))
+sns.pairplot(d.drop(["Latitude", "Longitude", "Distance_to_Water__m_", "Organic_Ma"], axis=1))
 plt.show()
 
-df = d.drop(["Distance_to_Water__m_", "Organic_De"], axis=1)
+df = d.drop(["Distance_to_Water__m_", "Organic_Ma", "Bulk_Densi"], axis=1)
 # Transformations
 # log transforms
-df["Bulk_Densi"] = [np.log(i) if i != 0 else 0 for i in df["Bulk_Densi"]]
+# df["Bulk_Densi"] = [np.log(i) if i != 0 else 0 for i in df["Bulk_Densi"]]
 df['Distance_to_Ocean__m_'] = [np.log(i) if i != 0 else 0 for i in df['Distance_to_Ocean__m_']]
 df['Distance_to_Fluvial_m'] = [np.log(i) if i != 0 else 0 for i in df['Distance_to_Fluvial_m']]
 sns.pairplot(df.drop(["Latitude", "Longitude"], axis=1))
@@ -53,9 +56,8 @@ for col in dmdf2.columns.values[8:]:
 
 # drop zscore columns
 dmdf2 = dmdf2.drop([
-    'Latitude_z', 'Longitude_z',
-    'Organic_Ma_z', 'Bulk_Densi_z', 'Distance_to_Ocean__m__z',
-    'Distance_to_Fluvial_m_z', 'Average_Ac_z'
+    'Latitude_z', 'Longitude_z', 'Organic_De_z', 'Distance_to_Ocean__m__z','Distance_to_Fluvial_m_z',
+    'Average_Ac_z', 'Mineral_De_z'
 ], axis=1)
 
 sns.pairplot(dmdf2.drop(["Latitude", "Longitude"], axis=1))
@@ -63,6 +65,7 @@ plt.show()
 
 # ========== Make new variable from Distances
 dmdf2['Fluvial_Dominance'] = dmdf2['Distance_to_Ocean__m_']/dmdf2['Distance_to_Fluvial_m']
+# dmdf2['']
 sns.pairplot(dmdf2.drop(["Latitude", "Longitude"], axis=1))
 plt.show()
 
@@ -71,7 +74,7 @@ from sklearn.cluster import KMeans
 # Standardizing
 from sklearn.preprocessing import MinMaxScaler
 
-X = dmdf2[['Organic_Ma', 'Bulk_Densi', 'Fluvial_Dominance']]
+X = dmdf2[['Organic_De', 'Mineral_De', 'Fluvial_Dominance']]
 scaler = MinMaxScaler()
 X = scaler.fit_transform(X)
 
@@ -98,13 +101,13 @@ print(centers)
 new_labels = kmean.labels_
 labels = new_labels.T
 stacked = np.column_stack((X, labels))
-Xdf = pd.DataFrame(stacked, columns=['Organic_Ma', 'Bulk_Densi', 'Fluvial_Dominance', 'K_mean_label'])
+Xdf = pd.DataFrame(stacked, columns=['Organic_De', 'Mineral_De', 'Fluvial_Dominance', 'K_mean_label'])
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
-xplt = Xdf['Organic_Ma']
-yplt = Xdf['Bulk_Densi']
+xplt = Xdf['Organic_De']
+yplt = Xdf['Mineral_De']
 zplt = Xdf['Fluvial_Dominance']
 cplt = Xdf['K_mean_label']
 ax.set_xlabel('Organic_Ma')
@@ -116,11 +119,16 @@ ax.scatter(xplt, yplt, zplt, c=cplt)
 plt.show()
 
 
+
+
+
+
+
 # Train a quick random forest model to test performance, will use the variables availible here to prove that they are significant to accretion
 Y = dmdf2['Average_Ac'].to_numpy()
 # implementing train-test-split
 from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.33, random_state=66)
+X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.33)
 
 # Initializing the Random Forest Regression model with 10 decision trees
 model = RandomForestRegressor(n_estimators=10, random_state=0)
@@ -204,7 +212,7 @@ est_gp = SymbolicRegressor(population_size=5000, function_set=function_set,
                            p_crossover=0.7, p_subtree_mutation=0.1,
                            p_hoist_mutation=0.05, p_point_mutation=0.1,
                            max_samples=0.9, verbose=1,
-                           parsimony_coefficient=0.01, random_state=0,
+                           parsimony_coefficient=0.01,
                           feature_names=['Organic_Ma', 'Bulk_Densi', 'Fluvial_Dominance'])
 
 est_gp.fit(X_train, y_train)
@@ -231,3 +239,7 @@ fig.show()
 eq = sympify((est_gp._program), locals=converter)
 print(eq)
 
+
+
+# Re think whcih vars to separate mineral from organic dominance, Should it just be a 2D plane?
+# Or maybe I can get a volume from the densities???? I think that would be better, then use the ratio of teh whole (should sum to one)
