@@ -30,7 +30,7 @@ plt.show()
 # +++++++++++++++++++++++ Clean data +++++++++++++++++++++++
 
 
-df = d[["Simple_sit", "Latitude", "Longitude", 'Organic Mass Accumulation (g/time)', 'Total Mass Accumulation (g/time)',
+df = d[["Simple_sit", "Latitude", "Longitude", 'Total Mass Accumulation (g/time)', 'Organic Mass Accumulation (g/time)',
         'Mineral Mass Accumulation (g/time)', "Distance_to_Ocean__m_",
         "Distance_to_Fluvial_m", 'Organic Mass Accumulation Fraction', 'Average_Ac_cm']]
 
@@ -69,7 +69,8 @@ for col in dmdf2.columns.values[9:]:
 
 # drop zscore columns
 dmdf2 = dmdf2.drop([
-    'Latitude_z', 'Longitude_z', 'Organic Mass Accumulation (g/time)_z', 'Distance_to_Ocean__m__z','Distance_to_Fluvial_m_z',
+    'Latitude_z', 'Longitude_z', 'Total Mass Accumulation (g/time)_z', 'Organic Mass Accumulation (g/time)_z', 'Distance_to_Ocean__m__z',
+    'Distance_to_Fluvial_m_z',
     'Average_Ac_cm_z', 'Mineral Mass Accumulation (g/time)_z', 'Organic Mass Accumulation Fraction_z'
 ], axis=1)
 
@@ -82,12 +83,16 @@ dmdf2['Fluvial_Dominance'] = dmdf2['Distance_to_Ocean__m_']/dmdf2['Distance_to_F
 sns.pairplot(dmdf2.drop(["Latitude", "Longitude"], axis=1))
 plt.show()
 
+# =============== K means algo =====================
+
+
 # ====================== K - Means Algorithm ==================
 from sklearn.cluster import KMeans
 # Standardizing
 from sklearn.preprocessing import MinMaxScaler
 
-X = dmdf2[['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)', 'Fluvial_Dominance']]
+# X = dmdf2[['Organic Mass Accumulation (g/time)', 'Fluvial_Dominance']]
+X = dmdf2[['Organic Mass Accumulation Fraction', "Fluvial_Dominance"]]
 scaler = MinMaxScaler()
 X = scaler.fit_transform(X)
 
@@ -97,12 +102,12 @@ kmean = KMeans(n_clusters=4, random_state=1)
 kmean.fit(X)
 KMeans(algorithm='auto',
        copy_x=True,
-       init='k-means++', # selects initial cluster centers
+       init='k-means++',  # selects initial cluster centers
        max_iter=300,
        n_clusters=4,
        n_init=10,
        random_state=1,
-       tol=0.0001, # min. tolerance for distance between clusters
+       tol=0.0001,  # min. tolerance for distance between clusters
        verbose=0)
 
 # instantiate a variable for the centers
@@ -114,28 +119,24 @@ print(centers)
 new_labels = kmean.labels_
 labels = new_labels.T
 stacked = np.column_stack((X, labels))
-Xdf = pd.DataFrame(stacked, columns=['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)',
-                                     'Fluvial_Dominance', 'K_mean_label'])
+Xdf = pd.DataFrame(stacked, columns=['Organic Mass Accumulation (g/time)', 'Fluvial_Dominance', 'K_mean_label'])
 
 fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+ax = fig.add_subplot(111)
 
 xplt = Xdf['Organic Mass Accumulation (g/time)']
-yplt = Xdf['Mineral Mass Accumulation (g/time)']
-zplt = Xdf['Fluvial_Dominance']
+yplt = Xdf['Fluvial_Dominance']
+
 cplt = Xdf['K_mean_label']
 ax.set_xlabel('Organic Mass Accumulation (g/time)')
-ax.set_ylabel('Mineral Mass Accumulation (g/time)')
-ax.set_zlabel('Fluvial_Dominance')
+ax.set_ylabel('Fluvial_Dominance')
 
-ax.scatter(xplt, yplt, zplt, c=cplt)
+
+ax.scatter(xplt, yplt, c=cplt)
 
 plt.show()
 
-# Blue: Mineral - Fluvial Marsh
-# Green: Organic - Fluvial Marsh
-# Purple: Organic - Oceanic Marsh
-# Yellow: Mineral - Oceanic Marsh
+
 
 # Train a quick random forest model to test performance, will use the variables availible here to prove that they are significant to accretion
 Y = dmdf2['Total Mass Accumulation (g/time)'].to_numpy()
@@ -192,7 +193,6 @@ fig.show()
 
 
 
-
 # ============== Test Symbolic regression =====================================
 from gplearn.genetic import SymbolicRegressor
 
@@ -207,7 +207,7 @@ def pow_2(x1):
     f = x1**2
     return f
 pow_2 = make_function(function=pow_2,name='pow2',arity=1)
-function_set = ['add', 'sub', 'mul', 'div'] # Prolly do not need these = , pow_2, pow_3]
+function_set = ['add', 'sub', 'mul', 'div']  # Prolly do not need these = , pow_2, pow_3]
 
 # Equation converter
 from sympy import *
@@ -233,9 +233,9 @@ est_gp = SymbolicRegressor(population_size=5000, function_set=function_set,
                            p_hoist_mutation=0.075, p_point_mutation=0.1,
                            max_samples=0.9, verbose=1,
                            parsimony_coefficient=0.01,
-                          feature_names=['x0', 'x1', 'x2'])
+                          feature_names=['x0', 'x1'])
 
-# 'Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)','Fluvial_Dominance'
+# 'Organic Mass Accumulation (g/time)','Fluvial_Dominance'
 
 est_gp.fit(X_train, y_train)
 y_predsr = est_gp.predict(X_test)
@@ -268,16 +268,18 @@ print(eq)
 # Or maybe I can get a volume from the densities???? I think that would be better, then use the ratio of teh whole (should sum to one)
 
 Xdf2 = pd.DataFrame(np.column_stack((Xdf.to_numpy(), dmdf2[['Longitude', 'Latitude']].to_numpy())),
-                    columns=['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)',
-                                     'Fluvial_Dominance', 'K_mean_label', 'Longitude', 'Latitude']
+                    columns=['Organic Mass Accumulation (g/time)', 'Fluvial_Dominance', 'K_mean_label',
+                             'Longitude', 'Latitude']
                     )
 
 # Plot k-means groups spatially lat, long
 plt.figure()
+plt.title('2D K means distribution')
 plt.scatter(x=Xdf2['Longitude'], y=Xdf2['Latitude'], c=Xdf['K_mean_label'])
 plt.show()
 
-Xdf2.to_csv(r"D:\Etienne\crmsDATATables\CRMS_Sites\k_means_clus_all3D.csv")
+Xdf2.to_csv(r"D:\Etienne\crmsDATATables\CRMS_Sites\k_means_clus_all2D.csv")
+
 
 
 
