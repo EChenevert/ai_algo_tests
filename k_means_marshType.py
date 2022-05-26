@@ -11,25 +11,35 @@ d = pd.read_csv(r"D:\Etienne\crmsDATATables\CRMS_Sites\try3_distances.csv",
 ]
 
 # Make mineral Density var from organic density
-d['Mineral_De'] = d['Bulk_Densi'] - d['Organic_De']
+# Convert Average accretion to cm
+d['Average_Ac_cm'] = d['Average_Ac'] * 10  # mm to cm conversion
+# d['Mineral_De'] = d['Bulk_Densi'] - d['Organic_De']
+# d['Bulk Accumulation (g/cm3)'] = d['Bulk_Densi'] * d['Average_Ac_cm'] * 10000  # Equation from Nyman et al 2006
+# d['Organic Accumulation (g/cm3)'] = d['Bulk_Densi'] * d['Average_Ac_cm'] * 10000  # Equation from Nyman et al 2006
+A = 10000  # This is the area of the study, in our case it is per site, so lets say the area is 1 m2 in cm
+d['Total Mass Accumulation (g/time)'] = (d['Bulk_Densi'] * d['Average_Ac_cm']) * A  # g/cm3 * cm/yr * cm2 = g/yr
+d['Organic Mass Accumulation (g/time)'] = (d['Bulk_Densi'] * d['Average_Ac_cm'] * d['Organic_Ma']) * A
+d['Mineral Mass Accumulation (g/time)'] = d['Total Mass Accumulation (g/time)'] - d['Organic Mass Accumulation (g/time)']
+d['Organic Mass Accumulation Fraction'] = d['Organic Mass Accumulation (g/time)']/d['Total Mass Accumulation (g/time)']
 
-sns.pairplot(d.drop(["Latitude", "Longitude", "Distance_to_Water__m_"], axis=1))
+sns.pairplot(d[['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)', "Distance_to_Ocean__m_",
+                "Distance_to_Fluvial_m", 'Organic Mass Accumulation Fraction', 'Average_Ac_cm']])
 plt.show()
 
 # +++++++++++++++++++++++ Clean data +++++++++++++++++++++++
 
-# less variables is better for the genetic algo
 
-# sr_df = d.drop(["Latitude", "Longitude", "Distance_to_Water__m_", "Organic_De"], axis=1)
-sns.pairplot(d.drop(["Latitude", "Longitude", "Distance_to_Water__m_", "Organic_Ma"], axis=1))
-plt.show()
+df = d[["Simple_sit", "Latitude", "Longitude", 'Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)', "Distance_to_Ocean__m_",
+        "Distance_to_Fluvial_m", 'Organic Mass Accumulation Fraction', 'Average_Ac_cm']]
 
-df = d.drop(["Distance_to_Water__m_", "Organic_Ma", "Bulk_Densi"], axis=1)
 # Transformations
 # log transforms
 # df["Bulk_Densi"] = [np.log(i) if i != 0 else 0 for i in df["Bulk_Densi"]]
 df['Distance_to_Ocean__m_'] = [np.log(i) if i != 0 else 0 for i in df['Distance_to_Ocean__m_']]
 df['Distance_to_Fluvial_m'] = [np.log(i) if i != 0 else 0 for i in df['Distance_to_Fluvial_m']]
+# df['Bulk Accumulation (g/cm3)'] = [np.log(i) if i != 0 else 0 for i in df['Bulk Accumulation (g/cm3)']]
+# df['Organic Accumulation (g/cm3)'] = [np.log(i) if i != 0 else 0 for i in df['Organic Accumulation (g/cm3)']]
+
 sns.pairplot(df.drop(["Latitude", "Longitude"], axis=1))
 plt.show()
 
@@ -52,12 +62,13 @@ for col in dmdf2.columns.values:
 #     dmdf[col_ls[i]+"_z"] = stats.zscore(dmdf[col_ls[i]])
 
 for col in dmdf2.columns.values[8:]:
+    print(col)
     dmdf2 = dmdf2[np.abs(dmdf2[col]) < 2]  # keep if value is less than 2 std
 
 # drop zscore columns
 dmdf2 = dmdf2.drop([
-    'Latitude_z', 'Longitude_z', 'Organic_De_z', 'Distance_to_Ocean__m__z','Distance_to_Fluvial_m_z',
-    'Average_Ac_z', 'Mineral_De_z'
+    'Latitude_z', 'Longitude_z', 'Organic Mass Accumulation (g/time)_z', 'Distance_to_Ocean__m__z','Distance_to_Fluvial_m_z',
+    'Average_Ac_cm_z', 'Mineral Mass Accumulation (g/time)_z', 'Organic Mass Accumulation Fraction_z'
 ], axis=1)
 
 sns.pairplot(dmdf2.drop(["Latitude", "Longitude"], axis=1))
@@ -74,7 +85,7 @@ from sklearn.cluster import KMeans
 # Standardizing
 from sklearn.preprocessing import MinMaxScaler
 
-X = dmdf2[['Organic_De', 'Mineral_De', 'Fluvial_Dominance']]
+X = dmdf2[['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)', 'Fluvial_Dominance']]
 scaler = MinMaxScaler()
 X = scaler.fit_transform(X)
 
@@ -101,17 +112,18 @@ print(centers)
 new_labels = kmean.labels_
 labels = new_labels.T
 stacked = np.column_stack((X, labels))
-Xdf = pd.DataFrame(stacked, columns=['Organic_De', 'Mineral_De', 'Fluvial_Dominance', 'K_mean_label'])
+Xdf = pd.DataFrame(stacked, columns=['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)',
+                                     'Fluvial_Dominance', 'K_mean_label'])
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
-xplt = Xdf['Organic_De']
-yplt = Xdf['Mineral_De']
+xplt = Xdf['Organic Mass Accumulation (g/time)']
+yplt = Xdf['Mineral Mass Accumulation (g/time)']
 zplt = Xdf['Fluvial_Dominance']
 cplt = Xdf['K_mean_label']
-ax.set_xlabel('Organic_Ma')
-ax.set_ylabel('Bulk_Densi')
+ax.set_xlabel('Organic Mass Accumulation (g/time)')
+ax.set_ylabel('Mineral Mass Accumulation (g/time)')
 ax.set_zlabel('Fluvial_Dominance')
 
 ax.scatter(xplt, yplt, zplt, c=cplt)
@@ -120,15 +132,13 @@ plt.show()
 
 
 
-
-
-
-
 # Train a quick random forest model to test performance, will use the variables availible here to prove that they are significant to accretion
-Y = dmdf2['Average_Ac'].to_numpy()
+Y = dmdf2['Average_Ac_cm'].to_numpy()
 # implementing train-test-split
 from sklearn.model_selection import train_test_split
 X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.33)
+
+
 
 # Initializing the Random Forest Regression model with 10 decision trees
 model = RandomForestRegressor(n_estimators=10, random_state=0)
@@ -170,8 +180,13 @@ plt.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
 ax.set_aspect('equal')  # can also be equal
 ax.set_xlim(lims)
 ax.set_ylim(lims)
+ax.set_title('Random Forest Regression')
+
 # ax.set_title(str(feature_names))
 fig.show()
+
+
+
 
 # ============== Test Symbolic regression =====================================
 from gplearn.genetic import SymbolicRegressor
@@ -210,10 +225,12 @@ converter = {
 est_gp = SymbolicRegressor(population_size=5000, function_set=function_set,
                            generations=40, stopping_criteria=0.01,
                            p_crossover=0.7, p_subtree_mutation=0.1,
-                           p_hoist_mutation=0.05, p_point_mutation=0.1,
+                           p_hoist_mutation=0.075, p_point_mutation=0.1,
                            max_samples=0.9, verbose=1,
                            parsimony_coefficient=0.01,
-                          feature_names=['Organic_Ma', 'Bulk_Densi', 'Fluvial_Dominance'])
+                          feature_names=['x0', 'x1', 'x2'])
+
+# 'Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)','Fluvial_Dominance'
 
 est_gp.fit(X_train, y_train)
 y_predsr = est_gp.predict(X_test)
@@ -233,6 +250,7 @@ plt.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
 ax.set_aspect('equal')  # can also be equal
 ax.set_xlim(lims)
 ax.set_ylim(lims)
+ax.set_title('Symbolic Regression')
 # ax.set_title(str(feature_names))
 fig.show()
 
