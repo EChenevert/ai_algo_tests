@@ -119,20 +119,20 @@ print(centers)
 new_labels = kmean.labels_
 labels = new_labels.T
 stacked = np.column_stack((X, labels))
-Xdf = pd.DataFrame(stacked, columns=['Organic Mass Accumulation (g/time)', 'Fluvial_Dominance', 'K_mean_label'])
+Xdf = pd.DataFrame(stacked, columns=['Organic Mass Accumulation Fraction', 'Fluvial_Dominance', 'K_mean_label'])
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
 
-xplt = Xdf['Organic Mass Accumulation (g/time)']
+xplt = Xdf['Organic Mass Accumulation Fraction']
 yplt = Xdf['Fluvial_Dominance']
 
 cplt = Xdf['K_mean_label']
-ax.set_xlabel('Organic Mass Accumulation (g/time)')
+ax.set_xlabel('Organic Mass Accumulation Fraction')
 ax.set_ylabel('Fluvial_Dominance')
 
 
-ax.scatter(xplt, yplt, c=cplt)
+ax.scatter(xplt, yplt, c=cplt, cmap='Accent')
 
 plt.show()
 
@@ -228,14 +228,14 @@ converter = {
 
 # initialize model
 est_gp = SymbolicRegressor(population_size=5000, function_set=function_set,
-                           generations=40, stopping_criteria=0.01,
+                           generations=40, stopping_criteria=0.01, const_range=None,
                            p_crossover=0.7, p_subtree_mutation=0.1,
                            p_hoist_mutation=0.075, p_point_mutation=0.1,
                            max_samples=0.9, verbose=1,
-                           parsimony_coefficient=0.01,
+                           parsimony_coefficient=0.05,
                           feature_names=['x0', 'x1'])
 
-# 'Organic Mass Accumulation (g/time)','Fluvial_Dominance'
+# 'Organic Mass Accumulation Fraction','Fluvial_Dominance'
 
 est_gp.fit(X_train, y_train)
 y_predsr = est_gp.predict(X_test)
@@ -267,10 +267,22 @@ print(eq)
 # Re think whcih vars to separate mineral from organic dominance, Should it just be a 2D plane?
 # Or maybe I can get a volume from the densities???? I think that would be better, then use the ratio of teh whole (should sum to one)
 
-Xdf2 = pd.DataFrame(np.column_stack((Xdf.to_numpy(), dmdf2[['Longitude', 'Latitude']].to_numpy())),
-                    columns=['Organic Mass Accumulation (g/time)', 'Fluvial_Dominance', 'K_mean_label',
-                             'Longitude', 'Latitude']
+Xdf1 = np.column_stack((Xdf.to_numpy(), Y))
+# Xdf1_1 = np.column_stack((Xdf1, dmdf['Simple_sit'].to_numpy()))
+Xdf2 = pd.DataFrame(np.column_stack((Xdf1, dmdf2[['Longitude', 'Latitude']].to_numpy())),
+                    columns=['Organic Mass Accumulation Fraction', 'Fluvial_Dominance', 'K_mean_label',
+                             'Total Mass Accumulation (g/time)', 'Longitude', 'Latitude']
                     )
+
+for idx in range(len(Xdf2['K_mean_label'])):
+    if Xdf2['K_mean_label'][idx] == 0:
+        Xdf2['K_mean_label'][idx] = 'Organic_Fluvial_Marsh'
+    elif Xdf2['K_mean_label'][idx] == 1:
+        Xdf2['K_mean_label'][idx] = 'Organic_Oceanic_Marsh'
+    elif Xdf2['K_mean_label'][idx] == 2:
+        Xdf2['K_mean_label'][idx] = 'Mineral_Oceanic_Marsh'
+    else:
+        Xdf2['K_mean_label'][idx] = 'Mineral_Fluvial_Marsh'
 
 # Plot k-means groups spatially lat, long
 plt.figure()

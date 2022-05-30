@@ -42,8 +42,8 @@ df['Distance_to_Fluvial_m'] = [np.log(i) if i != 0 else 0 for i in df['Distance_
 # df['Bulk Accumulation (g/cm3)'] = [np.log(i) if i != 0 else 0 for i in df['Bulk Accumulation (g/cm3)']]
 # df['Organic Accumulation (g/cm3)'] = [np.log(i) if i != 0 else 0 for i in df['Organic Accumulation (g/cm3)']]
 
-sns.pairplot(df.drop(["Latitude", "Longitude"], axis=1))
-plt.show()
+# sns.pairplot(df.drop(["Latitude", "Longitude"], axis=1))
+# plt.show()
 
 # drop outliers by zscore
 from scipy import stats
@@ -70,11 +70,12 @@ for col in dmdf2.columns.values[9:]:
 # drop zscore columns
 dmdf2 = dmdf2.drop([
     'Latitude_z', 'Longitude_z', 'Organic Mass Accumulation (g/time)_z', 'Distance_to_Ocean__m__z','Distance_to_Fluvial_m_z',
-    'Average_Ac_cm_z', 'Mineral Mass Accumulation (g/time)_z', 'Organic Mass Accumulation Fraction_z'
+    'Average_Ac_cm_z', 'Mineral Mass Accumulation (g/time)_z', 'Total Mass Accumulation (g/time)_z',
+    'Organic Mass Accumulation Fraction_z'
 ], axis=1)
 
-sns.pairplot(dmdf2.drop(["Latitude", "Longitude"], axis=1))
-plt.show()
+# sns.pairplot(dmdf2.drop(["Latitude", "Longitude"], axis=1))
+# plt.show()
 
 # ========== Make new variable from Distances
 dmdf2['Fluvial_Dominance'] = dmdf2['Distance_to_Ocean__m_']/dmdf2['Distance_to_Fluvial_m']
@@ -87,14 +88,16 @@ from sklearn.cluster import KMeans
 # Standardizing
 from sklearn.preprocessing import MinMaxScaler
 
-X = dmdf2[['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)', 'Fluvial_Dominance']]
-scaler = MinMaxScaler()
-X = scaler.fit_transform(X)
+# X = dmdf2[['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)', 'Fluvial_Dominance']]
+# scaler = MinMaxScaler()
+# X = scaler.fit_transform(X)
 
 # creating Kmeans object using  KMeans()
 kmean = KMeans(n_clusters=4, random_state=1)
 # Fit on data
-kmean.fit(X)
+# kmean.fit(X)
+k_df = dmdf2[['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)', 'Fluvial_Dominance']]
+kmean.fit(k_df)
 KMeans(algorithm='auto',
        copy_x=True,
        init='k-means++', # selects initial cluster centers
@@ -102,35 +105,35 @@ KMeans(algorithm='auto',
        n_clusters=4,
        n_init=10,
        random_state=1,
-       tol=0.0001, # min. tolerance for distance between clusters
+       tol=0.0001,  # min. tolerance for distance between clusters
        verbose=0)
 
 # instantiate a variable for the centers
 centers = kmean.cluster_centers_
 # print the cluster centers
 print(centers)
-
-# Plot
-new_labels = kmean.labels_
-labels = new_labels.T
-stacked = np.column_stack((X, labels))
-Xdf = pd.DataFrame(stacked, columns=['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)',
-                                     'Fluvial_Dominance', 'K_mean_label'])
-
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-
-xplt = Xdf['Organic Mass Accumulation (g/time)']
-yplt = Xdf['Mineral Mass Accumulation (g/time)']
-zplt = Xdf['Fluvial_Dominance']
-cplt = Xdf['K_mean_label']
-ax.set_xlabel('Organic Mass Accumulation (g/time)')
-ax.set_ylabel('Mineral Mass Accumulation (g/time)')
-ax.set_zlabel('Fluvial_Dominance')
-
-ax.scatter(xplt, yplt, zplt, c=cplt)
-
-plt.show()
+#
+# # Plot
+# new_labels = kmean.labels_
+# labels = new_labels.T
+# stacked = np.column_stack((X, labels))
+# Xdf = pd.DataFrame(stacked, columns=['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)',
+#                                      'Fluvial_Dominance', 'K_mean_label'])
+#
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+#
+# xplt = Xdf['Organic Mass Accumulation (g/time)']
+# yplt = Xdf['Mineral Mass Accumulation (g/time)']
+# zplt = Xdf['Fluvial_Dominance']
+# cplt = Xdf['K_mean_label']
+# ax.set_xlabel('Organic Mass Accumulation (g/time)')
+# ax.set_ylabel('Mineral Mass Accumulation (g/time)')
+# ax.set_zlabel('Fluvial_Dominance')
+#
+# ax.scatter(xplt, yplt, zplt, c=cplt)
+#
+# plt.show()
 
 # Blue: Mineral - Fluvial Marsh
 # Green: Organic - Fluvial Marsh
@@ -141,7 +144,7 @@ plt.show()
 Y = dmdf2['Total Mass Accumulation (g/time)'].to_numpy()
 # implementing train-test-split
 from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.33)
+X_train, X_test, y_train, y_test = train_test_split(k_df.to_numpy(), Y, test_size=0.33)
 
 
 
@@ -228,11 +231,11 @@ converter = {
 
 # initialize model
 est_gp = SymbolicRegressor(population_size=5000, function_set=function_set,
-                           generations=40, stopping_criteria=0.01,
-                           p_crossover=0.7, p_subtree_mutation=0.1,
-                           p_hoist_mutation=0.075, p_point_mutation=0.1,
+                           generations=40, stopping_criteria=0.01, const_range=(-1, 1),
+                           p_crossover=0.675, p_subtree_mutation=0.1,
+                           p_hoist_mutation=0.08, p_point_mutation=0.1,
                            max_samples=0.9, verbose=1,
-                           parsimony_coefficient=0.01,
+                           parsimony_coefficient=0.05,
                           feature_names=['x0', 'x1', 'x2'])
 
 # 'Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)','Fluvial_Dominance'
@@ -264,20 +267,21 @@ print(eq)
 
 
 
-# Re think whcih vars to separate mineral from organic dominance, Should it just be a 2D plane?
-# Or maybe I can get a volume from the densities???? I think that would be better, then use the ratio of teh whole (should sum to one)
-
-Xdf2 = pd.DataFrame(np.column_stack((Xdf.to_numpy(), dmdf2[['Longitude', 'Latitude']].to_numpy())),
-                    columns=['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)',
-                                     'Fluvial_Dominance', 'K_mean_label', 'Longitude', 'Latitude']
-                    )
-
-# Plot k-means groups spatially lat, long
-plt.figure()
-plt.scatter(x=Xdf2['Longitude'], y=Xdf2['Latitude'], c=Xdf['K_mean_label'])
-plt.show()
-
-Xdf2.to_csv(r"D:\Etienne\crmsDATATables\CRMS_Sites\k_means_clus_all3D.csv")
-
+# # Re think whcih vars to separate mineral from organic dominance, Should it just be a 2D plane?
+# # Or maybe I can get a volume from the densities???? I think that would be better, then use the ratio of teh whole (should sum to one)
+# Xdf1 = np.column_stack((Xdf.to_numpy(), Y))
+# Xdf2 = pd.DataFrame(np.column_stack((Xdf1, dmdf2[['Longitude', 'Latitude']].to_numpy())),
+#                     columns=['Organic Mass Accumulation (g/time)', 'Mineral Mass Accumulation (g/time)',
+#                              'Fluvial_Dominance', 'K_mean_label', 'Total Accumulation (g/time)',
+#                              'Longitude', 'Latitude']
+#                     )
+#
+# # Plot k-means groups spatially lat, long
+# plt.figure()
+# plt.scatter(x=Xdf2['Longitude'], y=Xdf2['Latitude'], c=Xdf['K_mean_label'])
+# plt.show()
+#
+# Xdf2.to_csv(r"D:\Etienne\crmsDATATables\CRMS_Sites\k_means_clus_all3D.csv")
+#
 
 
